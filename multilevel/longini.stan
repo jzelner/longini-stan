@@ -30,23 +30,47 @@ functions {
 
 
 }
+
 data {
   int N; //Number of households
+  int G; // Number of groups
   int k[N]; // Household sizes
   int j[N]; // Number of cases per household
+  int<lower=1,upper=G> group[N]; //Groups for each household
+  
 }
 
 parameters {
   real<lower=0,upper=1> B;
-  real<lower=0,upper=1> Q;
+  vector[G] q_ranef;
+  real<lower=0> q_sd;
+  real log_q_mu;
+}
+
+transformed parameters {
+  vector<lower=0,upper=1>[G] Q;
+  vector[G] q_ranef_c;
+
+  q_ranef_c <- q_ranef - mean(q_ranef);
+
+    
+  for (i in 1:G) {
+    Q[i] <- exp(-exp(log_q_mu + q_ranef_c[i]*q_sd));
+  }
+
+
 }
 
 model {
 
   vector[N] pdf_vals;
 
+  q_sd ~ cauchy(0,2);
+  q_ranef ~ normal(0,1);
+  log_q_mu ~ normal(0,8);
+
   for (i in 1:N) {
-    pdf_vals[i] <- longini_zero_log(B,Q,j[i],k[i]);
+    pdf_vals[i] <- longini_zero_log(B,Q[group[i]],j[i],k[i]);
   }
 
   increment_log_prob(sum(pdf_vals));
